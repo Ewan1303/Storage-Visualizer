@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# written while the app or the tests run
+settings.ini
+tests/.tmp/
+_verify/

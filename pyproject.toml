@@ -1,0 +1,12 @@
+[project]
+name = "storage-visualizer"
+version = "1.0.0"
+description = "See what is taking up space on your drives, as a treemap or a sunburst."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["PySide6>=6.8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"
