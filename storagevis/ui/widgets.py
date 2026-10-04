@@ -110,6 +110,11 @@ class ElidedLabel(QLabel):
         painter.drawText(self.rect(), int(self.alignment() | Qt.AlignmentFlag.AlignVCenter), text)
 
 
+def menu_text(text: str) -> str:
+    """Text for a menu item or button: a lone '&' would underline the next letter as a shortcut."""
+    return text.replace("&", "&&")
+
+
 def labelled(text: str, role: str, parent: QWidget | None = None, *, elide: Qt.TextElideMode | None = None) -> QLabel:
     """A label carrying a style role from the theme's stylesheet (title, secondary, muted...)."""
     label = ElidedLabel(text, elide, parent) if elide is not None else QLabel(text, parent)

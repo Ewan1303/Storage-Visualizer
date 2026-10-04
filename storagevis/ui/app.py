@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     window = MainWindow(themes, settings)
     window.show()
     if args.demo:
-        window.load_tree(build_demo_tree())
+        window.load_tree(build_demo_tree(), demo=True)
     elif args.path:
         window.start_scan(args.path)
     return app.exec()

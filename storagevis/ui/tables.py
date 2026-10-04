@@ -17,7 +17,7 @@ from ..core.categories import CATEGORIES
 from ..core.formatting import format_count, format_share, format_size
 from ..core.model import ExtensionStat, Node
 from .background import Background
-from .painting import folder_icon, qcolor, swatch_icon
+from .painting import folder_icon, glyph_icon, qcolor, swatch_icon
 from .state import ViewState
 from .theme import ThemeManager
 
@@ -26,7 +26,7 @@ NAME, SIZE, SHARE, LAST = range(4)
 _RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
 
 
-class _Icons:
+class RowIcons:
     """Theme-coloured row icons, rebuilt when the theme changes."""
 
     def __init__(self, themes: ThemeManager) -> None:
@@ -46,6 +46,13 @@ class _Icons:
             self._cache[key] = swatch_icon(self.themes.theme.categories[index])
         return self._cache[key]
 
+    def cloud(self) -> QIcon:
+        """Marks online-only files."""
+        key = ("cloud", self.themes.theme.name)
+        if key not in self._cache:
+            self._cache[key] = glyph_icon("cloud", self.themes.theme.text2, 14)
+        return self._cache[key]
+
 
 class BaseTableModel(QAbstractTableModel):
     """Rows recomputed from the view state. Hidden tables wait until they are shown."""
@@ -57,7 +64,7 @@ class BaseTableModel(QAbstractTableModel):
         super().__init__(parent)
         self.state = state
         self.themes = themes
-        self.icons = _Icons(themes)
+        self.icons = RowIcons(themes)
         self._rows: list = []
         self._total = 0
         self._sort_column = SIZE
@@ -342,7 +349,8 @@ class TypesModel(BaseTableModel):
         if role == Qt.ItemDataRole.TextAlignmentRole and column in self.right_aligned:
             return _RIGHT
         if role == Qt.ItemDataRole.ToolTipRole:
-            return f"{CATEGORIES[stat.category].label}. Click to highlight these files in the chart."
+            return (f"{CATEGORIES[stat.category].label}. Click to highlight these files in the chart; "
+                    "double-click to list them all in the file type viewer.")
         return None
 
 
@@ -493,11 +501,14 @@ class NodeTable(_Table):
 
 
 class TypesTable(_Table):
-    """File types; clicking one highlights its files in the chart."""
+    """File types; clicking one highlights its files in the chart, double-clicking lists them."""
+
+    extensionActivated = Signal(str)
 
     def __init__(self, state: ViewState, model: TypesModel, themes: ThemeManager) -> None:
         super().__init__(state, model, themes, last_column_width=64)
         self.clicked.connect(self._clicked)
+        self.doubleClicked.connect(self._double_clicked)
         state.emphasisChanged.connect(self._sync_selection)
         model.modelReset.connect(self._sync_selection)
         model.layoutChanged.connect(self._sync_selection)
@@ -506,6 +517,12 @@ class TypesTable(_Table):
         stat = self.table_model().stat_at(index.row())
         if stat is not None:
             self.state.toggle_emphasis(("extension", stat.extension))
+
+    def _double_clicked(self, index: QModelIndex) -> None:
+        stat = self.table_model().stat_at(index.row())
+        if stat is not None:
+            self.state.set_emphasis(("extension", stat.extension))
+            self.extensionActivated.emit(stat.extension)
 
     def _sync_selection(self) -> None:
         emphasis = self.state.emphasis

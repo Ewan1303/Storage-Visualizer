@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import random
+import re
+from datetime import datetime
 
 from .model import DirNode, ScanTree, aggregate
 
@@ -11,13 +13,31 @@ KB = 1024
 MB = 1024 * KB
 GB = 1024 * MB
 
+_EARLIEST = datetime(2021, 1, 1).timestamp()
+_LATEST = datetime(2026, 9, 30).timestamp()
+
+
+def _date(year: int, month: int, day: int) -> float:
+    return datetime(year, month, day, 12, 0).timestamp()
+
 
 def _files(rng: random.Random, folder: DirNode, pattern: str, count: int,
            smallest: float, largest: float, *, online_only: bool = False) -> None:
-    """Add ``count`` files named from ``pattern``, sizes spread log-evenly between the bounds."""
+    """Add ``count`` files named from ``pattern``, sizes spread log-evenly between the bounds.
+
+    Dates come from their own random stream (so sizes never change when dates
+    do), within the year a folder is named after, if any.
+    """
     low, high = math.log(smallest), math.log(largest)
+    dates = random.Random(f"{folder.name}|{pattern}")
+    year = re.search(r"20\d\d", folder.name)
+    if year:
+        start, end = _date(int(year.group()), 1, 1), _date(int(year.group()), 12, 31)
+    else:
+        start, end = _EARLIEST, _LATEST
     for i in range(1, count + 1):
-        folder.add_file(pattern.format(i), int(math.exp(rng.uniform(low, high))), online_only=online_only)
+        folder.add_file(pattern.format(i), int(math.exp(rng.uniform(low, high))), online_only=online_only,
+                        mtime=dates.uniform(start, end))
 
 
 def build_demo_tree(seed: int = 4) -> ScanTree:
@@ -55,8 +75,8 @@ def build_demo_tree(seed: int = 4) -> ScanTree:
     _files(rng, documents.add_dir("Taxes"), "tax_{:04d}.pdf", 60, 100 * KB, 2 * MB)
 
     downloads = home.add_dir("Downloads")
-    downloads.add_file("ubuntu-24.04-desktop-amd64.iso", int(5.7 * GB))
-    downloads.add_file("TestMachine.vhdx", 18 * GB)
+    downloads.add_file("ubuntu-24.04-desktop-amd64.iso", int(5.7 * GB), mtime=_date(2025, 4, 26))
+    downloads.add_file("TestMachine.vhdx", 18 * GB, mtime=_date(2026, 8, 14))
     _files(rng, downloads, "setup_{:02d}.exe", 12, 40 * MB, 600 * MB)
     _files(rng, downloads, "archive_{:02d}.zip", 18, 10 * MB, 1.2 * GB)
 
@@ -87,7 +107,7 @@ def build_demo_tree(seed: int = 4) -> ScanTree:
     skyward = common.add_dir("Skyward Isles")
     _files(rng, skyward.add_dir("Content").add_dir("Paks"), "pakchunk{:02d}-Windows.pak", 9, 1.5 * GB, 9 * GB)
     _files(rng, skyward.add_dir("Binaries"), "module{:02d}.dll", 30, 2 * MB, 80 * MB)
-    skyward.add_file("SkywardIsles.exe", 140 * MB)
+    skyward.add_file("SkywardIsles.exe", 140 * MB, mtime=_date(2026, 6, 3))
     neon = common.add_dir("Neon Drift")
     _files(rng, neon.add_dir("Data"), "level{:02d}.bundle", 40, 80 * MB, 700 * MB)
     _files(rng, neon.add_dir("Movies"), "intro_{:02d}.webm", 6, 200 * MB, 1.1 * GB)
@@ -105,8 +125,8 @@ def build_demo_tree(seed: int = 4) -> ScanTree:
     _files(rng, windows.add_dir("Installer"), "{:08x}.msi", 40, 2 * MB, 300 * MB)
     _files(rng, windows.add_dir("Fonts"), "font{:03d}.ttf", 300, 50 * KB, 3 * MB)
 
-    root.add_file("pagefile.sys", 12 * GB)
-    root.add_file("hiberfil.sys", int(6.4 * GB))
+    root.add_file("pagefile.sys", 12 * GB, mtime=_date(2026, 9, 30))
+    root.add_file("hiberfil.sys", int(6.4 * GB), mtime=_date(2026, 9, 29))
 
     aggregate(root)
     total = 931 * GB

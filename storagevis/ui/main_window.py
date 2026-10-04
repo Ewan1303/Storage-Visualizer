@@ -12,18 +12,22 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QFileDia
                                QMenu, QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QVBoxLayout)
 
 from .. import APP_NAME, __version__
-from ..core.categories import CATEGORIES
+from ..core.categories import CATEGORIES, KIND_LABELS, kind_of_extension, kinds_in_category
 from ..core.formatting import format_count, format_duration
 from ..core.model import Node, ScanTree
 from ..core.scanner import Scanner, release_tree
 from ..core.system import is_drive_root, open_path, reveal_in_file_manager
+from .demo_pictures import demo_picture
 from .details import REVEAL_LABEL
+from .file_viewer import FileViewer
 from .pages import ScanPage, StartPage
 from .painting import folder_icon, glyph_icon
 from .results_page import VIEWS, ResultsPage
 from .settings import Settings
 from .state import ViewState
 from .theme import ThemeManager
+from .thumbnails import ThumbnailProvider
+from .widgets import menu_text
 
 
 class MainWindow(QMainWindow):
@@ -36,6 +40,8 @@ class MainWindow(QMainWindow):
         self._scanner: Scanner | None = None
         self._restore_parts: list[str] | None = None
         self._discard_scan = False
+        self.thumbnails = ThumbnailProvider(parent=self)
+        self._viewer: FileViewer | None = None  # made the first time it is asked for
 
         self.setWindowTitle(APP_NAME)
         self.setAcceptDrops(True)
@@ -66,6 +72,10 @@ class MainWindow(QMainWindow):
             chart.contextMenuRequested.connect(self.show_node_menu)
         self.results_page.side.contextMenuRequested.connect(self.show_node_menu)
         self.results_page.side.actionRequested.connect(self.node_action)
+        self.results_page.side.typeActivated.connect(
+            lambda ext: self.open_viewer({kind_of_extension(ext)}, {ext}, in_folder=True))
+        self.results_page.legend.browseRequested.connect(
+            lambda category: self.open_viewer(kinds_in_category(category), set(), in_folder=True))
         for signal in (self.state.treeChanged, self.state.rootChanged):
             signal.connect(self._update_actions)
         self.pages.currentChanged.connect(lambda _index: self._update_actions())
@@ -107,6 +117,9 @@ class MainWindow(QMainWindow):
         views.setExclusive(True)
         views.addAction(actions["treemap"])
         views.addAction(actions["sunburst"])
+        add("viewer", "File type viewer…", lambda: self.open_viewer(), "Ctrl+T",
+            tip="See all your photos, videos or other files in one place (Ctrl+T)")
+        actions["viewer"].setIconText("File type viewer")  # the toolbar button's label
         add("up", "Up one level", self.state.go_up, ["Backspace", "Alt+Up"], tip="Up one level (Backspace)")
         add("top", "Back to the scanned folder", self.state.go_top, "Alt+Home")
         add("clear", "Clear highlight and selection", self._clear_highlight, "Esc")
@@ -133,6 +146,8 @@ class MainWindow(QMainWindow):
         view = bar.addMenu("&View")
         view.addAction(a["treemap"])
         view.addAction(a["sunburst"])
+        view.addSeparator()
+        view.addAction(a["viewer"])
         view.addSeparator()
         view.addAction(a["up"])
         view.addAction(a["top"])
@@ -163,7 +178,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_icons(self, _theme=None) -> None:
         colour = self.themes.theme.text
-        for key, glyph in (("up", "up"), ("rescan", "refresh"), ("new_scan", "add")):
+        for key, glyph in (("up", "up"), ("rescan", "refresh"), ("new_scan", "add"), ("viewer", "photo")):
             self.actions[key].setIcon(glyph_icon(glyph, colour))
         self.actions["open_folder"].setIcon(folder_icon(colour))
 
@@ -175,6 +190,7 @@ class MainWindow(QMainWindow):
         a["new_scan"].setEnabled(not scanning)
         a["open_folder"].setEnabled(not scanning)
         a["rescan"].setEnabled(tree is not None and not scanning)
+        a["viewer"].setEnabled(tree is not None)
         a["up"].setEnabled(on_results and self.state.can_go_up)
         a["top"].setEnabled(on_results and self.state.can_go_up)
         a["issues"].setEnabled(tree is not None and tree.error_count > 0)
@@ -203,10 +219,26 @@ class MainWindow(QMainWindow):
         self.results_page.set_view(name)
         self.actions[name].setChecked(True)
 
-    def load_tree(self, tree: ScanTree, root: Node | None = None) -> None:
-        """Show a finished scan (or the demo data)."""
+    def load_tree(self, tree: ScanTree, root: Node | None = None, demo: bool = False) -> None:
+        """Show a finished scan, or the made-up demo data (whose files have drawn pictures)."""
+        self.thumbnails.clear()
+        self.thumbnails.picture_maker = demo_picture if demo else None
         self.state.set_tree(tree, root)
         self.show_results()
+
+    def open_viewer(self, kinds=None, extensions=None, in_folder: bool | None = None) -> None:
+        """Show the file type viewer, optionally set to some kinds of file."""
+        if self._viewer is None:
+            self._viewer = FileViewer(self.state, self.themes, self.settings, self.thumbnails)
+            self._viewer.showInChart.connect(self._come_forward)
+        self._viewer.show_types(kinds, extensions, in_folder)
+
+    def _come_forward(self) -> None:
+        self.show_results()
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
 
     def _show_scan_summary(self, tree: ScanTree) -> None:
         parts = [f"Scanned {format_count(tree.root.files, 'file')} and "
@@ -334,15 +366,27 @@ class MainWindow(QMainWindow):
                 menu.addAction("Zoom to its folder", lambda: self.node_action("zoom", node))
         menu.addAction(REVEAL_LABEL, lambda: self.node_action("reveal", node))
         menu.addAction("Copy path", lambda: self.node_action("copy", node))
-        if not node.is_dir:
-            menu.addSeparator()
+        menu.addSeparator()
+        if node.is_dir:
+            menu.addAction("Browse the files in here by type…", lambda: self._browse_folder(node))
+        else:
             ext = node.extension
+            kind = kind_of_extension(ext)
             label = f"Highlight .{ext} files" if ext else "Highlight files with no extension"
             menu.addAction(label, lambda: state.set_emphasis(("extension", ext)))
             category = CATEGORIES[node.category]
-            menu.addAction(f"Highlight {category.label.lower()}",
+            menu.addAction(menu_text(f"Highlight {category.label.lower()}"),
                            lambda: state.set_emphasis(("category", category.index)))
+            menu.addSeparator()
+            every = f"Show all .{ext} files…" if ext else "Show all files with no extension…"
+            menu.addAction(every, lambda: self.open_viewer({kind}, {ext}, in_folder=False))
+            menu.addAction(menu_text(f"Show all {KIND_LABELS[kind].lower()}…"),
+                           lambda: self.open_viewer({kind}, set(), in_folder=False))
         menu.exec(pos)
+
+    def _browse_folder(self, folder: Node) -> None:
+        self.state.set_root(folder)
+        self.open_viewer(in_folder=True)
 
     def node_action(self, action: str, node: Node) -> None:
         tree = self.state.tree
@@ -420,6 +464,7 @@ class MainWindow(QMainWindow):
             ("Esc", "Clear the highlight, then the selection"),
             ("Ctrl+1 / Ctrl+2", "Treemap / sunburst"),
             ("F5", "Rescan"),
+            ("Ctrl+T", "File type viewer: all your photos, videos and more"),
             ("Ctrl+O", "Scan a folder"),
             ("Ctrl+N", "New scan"),
         )
@@ -482,5 +527,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         if self._scanner is not None:
             self._scanner.cancel()
+        if self._viewer is not None:
+            self._viewer.close()  # saves its own settings
         self._save_settings()
+        self.thumbnails.close()
         super().closeEvent(event)

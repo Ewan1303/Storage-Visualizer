@@ -236,12 +236,12 @@ class Scanner:
                         record = extensions[ext] = [0, 0, 0]
                     record[2] += 1
                     if _HAS_ATTRIBUTES and st.st_file_attributes & ONLINE_ONLY_ATTRIBUTES:
-                        children.append(FileNode(name, node, 0, nbytes, ext))
+                        children.append(FileNode(name, node, 0, nbytes, ext, st.st_mtime))
                         cloud += nbytes
                         by_category[N_CATEGORIES + category] += nbytes
                         record[1] += nbytes
                     else:
-                        children.append(FileNode(name, node, nbytes, 0, ext))
+                        children.append(FileNode(name, node, nbytes, 0, ext, st.st_mtime))
                         size += nbytes
                         by_category[category] += nbytes
                         record[0] += nbytes

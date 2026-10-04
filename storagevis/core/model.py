@@ -43,14 +43,21 @@ class Node:
 
 class FileNode(Node):
     # ``ext`` is shared between files (interned), so storing it costs one pointer.
-    __slots__ = ("ext",)
+    __slots__ = ("ext", "mtime")
 
-    def __init__(self, name: str, parent: DirNode | None, size: int, cloud: int, ext: str) -> None:
+    def __init__(self, name: str, parent: DirNode | None, size: int, cloud: int, ext: str,
+                 mtime: float = 0.0) -> None:
         self.name = name
         self.parent = parent
         self.size = size
         self.cloud = cloud
         self.ext = ext
+        self.mtime = mtime  # last modified, seconds since 1970 (0 when unknown)
+
+    @property
+    def total(self) -> int:
+        """Bytes counting online-only content too: the file's size as Explorer shows it."""
+        return self.size + self.cloud
 
     @property
     def category(self) -> int:
@@ -87,16 +94,16 @@ class DirNode(Node):
         self.children.append(child)
         return child
 
-    def add_file(self, name: str, nbytes: int, *, online_only: bool = False) -> FileNode:
+    def add_file(self, name: str, nbytes: int, *, online_only: bool = False, mtime: float = 0.0) -> FileNode:
         """Add a file and count it in this folder's own totals."""
         ext = sys.intern(extension_of(name))
         category = EXTENSION_CATEGORY.get(ext, OTHER)
         if online_only:
-            node = FileNode(name, self, 0, nbytes, ext)
+            node = FileNode(name, self, 0, nbytes, ext, mtime)
             self.cloud += nbytes
             self.by_category[N_CATEGORIES + category] += nbytes
         else:
-            node = FileNode(name, self, nbytes, 0, ext)
+            node = FileNode(name, self, nbytes, 0, ext, mtime)
             self.size += nbytes
             self.by_category[category] += nbytes
             self.biggest = max(self.biggest, nbytes)

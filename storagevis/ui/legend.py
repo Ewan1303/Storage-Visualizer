@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QFont, QFontMetrics, QPainter
-from PySide6.QtWidgets import QSizePolicy, QWidget
+from PySide6.QtWidgets import QMenu, QSizePolicy, QWidget
 
 from ..core.categories import CATEGORIES
 from ..core.formatting import format_share, format_size
 from .painting import blend, qcolor
 from .state import ViewState
 from .theme import ThemeManager
+from .widgets import menu_text
 
 _CLEAR = -1  # chip index that clears an extension highlight
 
@@ -18,6 +19,8 @@ _CLEAR = -1  # chip index that clears an extension highlight
 class Legend(QWidget):
     ROW_GAP = 4
     CHIP_GAP = 6
+
+    browseRequested = Signal(int)  # a category: list its files in the file type viewer
 
     def __init__(self, state: ViewState, themes: ThemeManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -168,3 +171,13 @@ class Legend(QWidget):
             self.state.set_emphasis(None)
         elif index is not None:
             self.state.toggle_emphasis(("category", index))
+
+    def contextMenuEvent(self, event) -> None:
+        index = self._index_at(event.pos())
+        if index is None or index == _CLEAR:
+            return
+        label = CATEGORIES[index].label.lower()
+        menu = QMenu(self)
+        menu.addAction(menu_text(f"Highlight {label}"), lambda: self.state.set_emphasis(("category", index)))
+        menu.addAction("List these files in the file type viewer…", lambda: self.browseRequested.emit(index))
+        menu.exec(event.globalPos())

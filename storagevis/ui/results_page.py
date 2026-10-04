@@ -52,6 +52,7 @@ class ResultsPage(QWidget):
             seg.addWidget(_tool_button(actions[key], Qt.ToolButtonStyle.ToolButtonTextOnly))
         bar.addWidget(segmented)
         bar.addSpacing(10)
+        bar.addWidget(_tool_button(actions["viewer"], Qt.ToolButtonStyle.ToolButtonTextBesideIcon))
         bar.addWidget(_tool_button(actions["rescan"], Qt.ToolButtonStyle.ToolButtonTextBesideIcon))
         bar.addWidget(_tool_button(actions["new_scan"], Qt.ToolButtonStyle.ToolButtonTextBesideIcon))
 

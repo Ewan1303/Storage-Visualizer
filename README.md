@@ -2,6 +2,7 @@
 
 See what is taking up space on your drives. Scan a drive or a folder, then explore it as a
 **treemap** or a **sunburst**, with tables of its contents, file types and largest files alongside.
+The **file type viewer** shows every photo, video or other kind of file in the scan in one window.
 
 ![Treemap of the made-up demo drive, dark theme](docs/treemap-dark.png)
 
@@ -52,6 +53,36 @@ python storage_visualizer.py --theme light
 
 ![Sunburst of the same demo drive, light theme](docs/sunburst-light.png)
 
+## File type viewer
+
+To see all your photos and videos (or music, documents, archives, programs...), click
+**File type viewer** at the top of the results or press **Ctrl+T**. It opens in its own window.
+
+![All the photos and videos on the demo drive, as thumbnails](docs/viewer-dark.png)
+
+- **Pick the kinds** at the top: Photos & images, Videos, Music & audio, Documents, Archives &
+  disk images, Programs & system, Other. It starts on photos and videos.
+- **Narrow it down** by part of the name, by extension (only `.mov`, say), by minimum size, or to the
+  folder you are looking at in the main window.
+- **App and system folders are skipped** unless you tick *Include app and system folders*:
+  Windows, Program Files, ProgramData, AppData, the Recycle Bin, node_modules, Steam games and the
+  like. Without this, your own photos would be buried under thousands of app icons and game
+  textures. Hover the tick box to see the whole list.
+- **Thumbnails or a list.** Thumbnails are the ones Windows Explorer shows, so videos show a frame,
+  and photos in HEIC or camera RAW formats work too when Windows has their codec. The list has
+  size, type, date and folder columns; click a heading to sort. Drag the slider for bigger
+  thumbnails.
+- **Sort** by size, date, name or folder.
+- **Act on files.** Double-click opens a file. The side panel (or right-click) also has
+  *Show in Explorer*, *Copy path* and *Show in chart*, which jumps the main window to that file.
+- **Other ways in.** Right-click any file in the chart for *Show all .jpg files* or *Show all
+  photos & images*, double-click a row in the *File types* table, or right-click a colour in the
+  key under the chart.
+- **OneDrive online-only files** are listed with a cloud mark, because they are still your files.
+  Their thumbnails come only from what Windows already has, so browsing never downloads them.
+
+![The same files as a list, newest first, light theme](docs/viewer-list-light.png)
+
 ## How sizes are counted
 
 - Each file counts at the size Windows reports, like Explorer's *Size* column, in Explorer's units
@@ -86,14 +117,22 @@ The colours never carry meaning alone: the key under the chart, labels, hover ca
 | Click a type in the key | Highlight just that type (click again to clear) |
 | Esc | Clear the highlight, then the selection |
 | Ctrl+1 / Ctrl+2 | Treemap / sunburst |
+| Ctrl+T | File type viewer |
 | F5 | Rescan |
 | Ctrl+O / Ctrl+N | Scan a folder / new scan |
+
+In the file type viewer: Ctrl+F jumps to the search box, Enter or double-click opens a file, and
+Ctrl+C copies the selected files' paths.
 
 ## Speed
 
 On the PC it was built on, scanning all of `C:` (2 million files in 380,000 folders, 820 GB) took
-about a minute and used about 550 MB of memory. Speed is limited by how fast Windows opens
+about a minute and used about 600 MB of memory. Speed is limited by how fast Windows opens
 folders, so the scanner reads eight folders at once.
+
+On that scan, the file type viewer found all 25,000 photos and videos in under a tenth of a second,
+because it skips every folder whose totals show none of the kinds asked for. Including the app and
+system folders turned up 184,000, mostly icons and game files, in half a second.
 
 ## How it is built
 
@@ -104,10 +143,16 @@ storagevis/core/          scanning, sizes and layout maths (no Qt)
     scanner.py            multi-threaded folder walk
     model.py              the tree, totals and queries (largest files, file types)
     layout.py             squarified treemap and sunburst geometry
-    categories.py         which extensions belong to which file type
+    categories.py         which extensions belong to which kind of file and chart colour
+    finder.py             the file type viewer's search
+    thumbnails.py         Windows Explorer's thumbnails, as plain pixels
     system.py             drives, special folders, long paths, Explorer
     demo.py               the made-up drive behind --demo and the screenshots
-storagevis/ui/            the PySide6 window
+storagevis/ui/            the PySide6 windows
+    file_viewer.py        the file type viewer window
+    viewer_results.py     its thumbnail grid and list
+    viewer_preview.py     its preview pane
+    thumbnails.py         makes thumbnails on worker threads, newest request first
 tests/                    pytest suite
 tools/screenshots.py      redraws the pictures in docs/
 ```

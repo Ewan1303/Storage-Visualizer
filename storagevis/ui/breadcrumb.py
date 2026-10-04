@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QToolButton, QWidget
 
 from .state import ViewState
+from .widgets import menu_text
 
 
 class Breadcrumb(QWidget):
@@ -59,14 +60,14 @@ class Breadcrumb(QWidget):
                 button.setToolTip("More folders")
                 menu = QMenu(button)
                 for folder in hidden:
-                    action = menu.addAction(state.tree.display_name(folder))
+                    action = menu.addAction(menu_text(state.tree.display_name(folder)))
                     action.triggered.connect(lambda _checked=False, n=folder: self.state.set_root(n))
                 button.setMenu(menu)
                 button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
             else:
                 name = state.tree.display_name(node)
                 shown = button.fontMetrics().elidedText(name, Qt.TextElideMode.ElideMiddle, self.MAX_NAME_WIDTH)
-                button.setText(shown.replace("&", "&&"))
+                button.setText(menu_text(shown))
                 button.setToolTip(state.tree.path_of(node))
                 if node is state.root:
                     button.setProperty("current", True)

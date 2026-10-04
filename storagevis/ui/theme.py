@@ -13,6 +13,7 @@ white, whichever contrasts more.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor, QPalette
@@ -171,6 +172,14 @@ def build_palette(t: Theme) -> QPalette:
     return pal
 
 
+_ASSETS = Path(__file__).resolve().parent / "assets"
+
+
+def _tick(theme: Theme, on: str) -> str:
+    """Path to the tick drawn in check boxes ("box": on a filled box, "text": on a menu row)."""
+    return (_ASSETS / f"tick-{theme.name}-{on}.svg").as_posix()
+
+
 def build_stylesheet(t: Theme) -> str:
     return f"""
     QMainWindow, QStackedWidget#Pages {{ background: {t.window}; }}
@@ -258,6 +267,7 @@ def build_stylesheet(t: Theme) -> str:
     QMenu::item:disabled {{ color: {t.muted}; }}
     QMenu::separator {{ height: 1px; background: {t.border}; margin: 4px 8px; }}
     QMenu::indicator {{ width: 14px; height: 14px; left: 8px; }}
+    QMenu::indicator:checked {{ image: url("{_tick(t, 'text')}"); }}
 
     QSplitter::handle {{ background: {t.border}; }}
     QSplitter::handle:horizontal {{ width: 1px; }}
@@ -274,4 +284,37 @@ def build_stylesheet(t: Theme) -> str:
 
     QPlainTextEdit {{ background: {t.surface}; color: {t.text}; border: 1px solid {t.border}; border-radius: 6px; }}
     QDialog, QMessageBox {{ background: {t.window}; }}
+
+    QLineEdit {{
+        background: {t.raised}; color: {t.text}; border: 1px solid {t.border}; border-radius: 6px;
+        padding: 5px 8px; selection-background-color: {t.selected}; selection-color: {t.text};
+    }}
+    QLineEdit:focus {{ border-color: {t.text2}; }}
+    QComboBox {{
+        background: {t.raised}; color: {t.text}; border: 1px solid {t.border}; border-radius: 6px;
+        padding: 4px 10px; min-height: 20px;
+    }}
+    QComboBox:hover {{ background: {t.hover}; }}
+    QComboBox:disabled {{ color: {t.muted}; }}
+    QComboBox QAbstractItemView {{
+        background: {t.raised}; color: {t.text}; border: 1px solid {t.border}; outline: 0;
+        selection-background-color: {t.selected}; selection-color: {t.text};
+    }}
+    QCheckBox {{ spacing: 7px; color: {t.text2}; }}
+    QCheckBox:hover {{ color: {t.text}; }}
+    QCheckBox::indicator {{
+        width: 14px; height: 14px; border: 1px solid {t.text2}; border-radius: 3px; background: {t.raised};
+    }}
+    QCheckBox::indicator:hover {{ border-color: {t.text}; }}
+    QCheckBox::indicator:checked {{ background: {t.text}; border-color: {t.text}; image: url("{_tick(t, 'box')}"); }}
+    QSlider::groove:horizontal {{ height: 4px; background: {t.track}; border-radius: 2px; }}
+    QSlider::sub-page:horizontal {{ background: {t.text2}; border-radius: 2px; }}
+    QSlider::handle:horizontal {{ width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; background: {t.text}; }}
+    QListView {{ background: {t.surface}; border: none; outline: 0; }}
+    QToolButton[chip="true"] {{
+        border: 1px solid {t.border}; border-radius: 14px; padding: 4px 12px 4px 9px; color: {t.text2};
+    }}
+    QToolButton[chip="true"]:hover {{ background: {t.hover}; color: {t.text}; }}
+    QToolButton[chip="true"]:checked {{ background: {t.selected}; border-color: {t.text2}; color: {t.text}; }}
+    QWidget#FilterBar {{ background: {t.surface}; border-bottom: 1px solid {t.border}; }}
     """

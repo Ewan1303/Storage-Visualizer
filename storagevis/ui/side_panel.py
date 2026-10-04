@@ -15,6 +15,7 @@ from .theme import ThemeManager
 class SidePanel(QWidget):
     contextMenuRequested = Signal(object, QPoint)
     actionRequested = Signal(str, object)
+    typeActivated = Signal(str)  # an extension double-clicked in the File types table
 
     def __init__(self, state: ViewState, themes: ThemeManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -49,6 +50,7 @@ class SidePanel(QWidget):
         self.contents.contextMenuForNode.connect(self.contextMenuRequested)
         self.largest.contextMenuForNode.connect(self.contextMenuRequested)
         self.details.actionRequested.connect(self.actionRequested)
+        self.types.extensionActivated.connect(self.typeActivated)
 
     def _open_from_contents(self, node: Node) -> None:
         if node.is_dir:
